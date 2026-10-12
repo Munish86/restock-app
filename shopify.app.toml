@@ -1,10 +1,11 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
-# client_id is filled by `npm run config:link` (create a NEW app "Restock" there; do not link the uploader).
+# The production app "Restock", hosted on Railway. After any `npm run config:link`, check this file again:
+# the CLI rewrites it (api_version, URLs, webhooks).
 
-client_id = ""
+client_id = "fc0ae5925d98dec9609df1b38c3b7062"
 name = "Restock"
 embedded = true
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://restock-app-production.up.railway.app"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
@@ -46,8 +47,13 @@ api_version = "2026-10"
   compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
 
 [auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+redirect_urls = [
+  "https://restock-app-production.up.railway.app/auth/callback",
+  "https://restock-app-production.up.railway.app/auth/shopify/callback",
+  "https://restock-app-production.up.railway.app/api/auth/callback"
+]
 
 [build]
 include_config_on_deploy = true
-automatically_update_urls_on_dev = true
+# Production URLs: "npm run dev" must not replace them with a tunnel
+automatically_update_urls_on_dev = false
