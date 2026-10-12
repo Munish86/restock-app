@@ -1,0 +1,4 @@
+SKU,Supplier,Supplier SKU,Cost,Case pack,Minimum order,Lead time (days),Supplier email
+MUG-OSLO-WHT,Acme Ceramics,AC-1001,3.50,12,24,10,orders@acme.example
+MUG-OSLO-BLK,Acme Ceramics,AC-1002,3.50,12,24,10,
+LAMP-NORD-01,Lumen Lighting,LL-77,29.00,,,21,sales@lumen.example

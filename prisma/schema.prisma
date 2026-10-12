@@ -1,0 +1,355 @@
+// Database for Restock (stock forecasting + purchase orders). Every table except Session is scoped to one shop
+// and deleted with its Shop row.
+// Learn more about the Prisma schema: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Shopify sessions, managed by @shopify/shopify-app-session-storage-prisma. Do not rename fields.
+model Session {
+  id                  String    @id
+  shop                String
+  state               String
+  isOnline            Boolean   @default(false)
+  scope               String?
+  expires             DateTime?
+  accessToken         String
+  userId              BigInt?
+  firstName           String?
+  lastName            String?
+  email               String?
+  accountOwner        Boolean   @default(false)
+  locale              String?
+  collaborator        Boolean?  @default(false)
+  emailVerified       Boolean?  @default(false)
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+
+  @@index([shop])
+}
+
+// One row per store that has installed the app.
+model Shop {
+  shop          String    @id // "my-store.myshopify.com"
+  name          String    @default("")
+  email         String    @default("") // the store's email, default recipient of alerts
+  currency      String    @default("USD")
+  timezone      String    @default("UTC") // IANA, e.g. "Asia/Kolkata": sales days and alert times follow it
+  plan          String    @default("free") // free | starter | growth | pro (app/lib/plans.ts)
+  planCheckedAt DateTime?
+  // Forecast, alert and purchase order settings. See app/lib/settings.ts
+  settings      Json?
+  // Sync state
+  syncedAt      DateTime? // last successful sync (products, stock and orders)
+  ordersFrom    DateTime? // the oldest day of sales history the app has
+  allOrders     Boolean   @default(false) // read_all_orders granted: history older than 60 days is available
+  poCounter     Int       @default(0) // last purchase order number used
+  // Alerts: when each was last sent (claimed with a conditional update, so two workers never send twice)
+  weeklySentAt  DateTime?
+  dailyCheckAt  DateTime?
+  installedAt   DateTime  @default(now())
+  uninstalledAt DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  jobs      Job[]
+  files     StoredFile[]
+  locations Location[]
+  variants  Variant[]
+  levels    InventoryLevel[]
+  bundles   BundleComponent[]
+  sales     SalesDay[]
+  outDays   OutOfStockDay[]
+  suppliers Supplier[]
+  items     SupplierItem[]
+  plans     VariantPlan[]
+  orders    PurchaseOrder[]
+  receipts  Receipt[]
+  emails    EmailLog[]
+}
+
+// A sync, supplier import or other background run, carried out by the worker. One active job per shop.
+model Job {
+  id          String    @id @default(cuid())
+  shop        String
+  command     String // sync | import-plan | import
+  status      String    @default("queued") // queued | running | done | failed | stopped
+  options     Json?
+  progress    Json? // { done, total, step }
+  counts      Json? // { "Variants": 120, ... }
+  reportKey   String? // report rows (JSON) in file storage
+  log         String    @default("")
+  error       String?
+  stopAsked   Boolean   @default(false)
+  attempts    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  startedAt   DateTime?
+  heartbeatAt DateTime?
+  finishedAt  DateTime?
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@index([shop, createdAt])
+  @@index([shop, status])
+  @@index([status, heartbeatAt])
+}
+
+// An uploaded supplier sheet. The bytes live in file storage under storageKey.
+model StoredFile {
+  id         String   @id @default(cuid())
+  shop       String
+  kind       String // sheet
+  name       String
+  size       Int
+  mime       String
+  storageKey String
+  createdAt  DateTime @default(now())
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@index([shop, kind])
+}
+
+model Location {
+  shop     String
+  id       String // gid://shopify/Location/1
+  name     String
+  isActive Boolean @default(true)
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@id([shop, id])
+}
+
+// A product variant as of the last sync
+model Variant {
+  shop            String
+  id              String // gid://shopify/ProductVariant/1
+  productId       String
+  productTitle    String
+  variantTitle    String // "" for a product without options
+  sku             String    @default("")
+  barcode         String    @default("")
+  vendor          String    @default("")
+  productType     String    @default("")
+  status          String    @default("ACTIVE") // ACTIVE | DRAFT | ARCHIVED
+  imageUrl        String?
+  price           Decimal?  @db.Decimal(14, 4)
+  unitCost        Decimal?  @db.Decimal(14, 4) // Shopify's "cost per item"
+  inventoryItemId String    @default("")
+  tracked         Boolean   @default(true) // Shopify tracks its stock
+  isBundle        Boolean   @default(false) // has components (Shopify bundle or set up in the app)
+  productCreated  DateTime? // sales before this are impossible: shorter history for new products
+  deletedAt       DateTime? // gone from Shopify; kept because purchase orders refer to it
+  lowAlertAt      DateTime? // last low-stock alert that listed it; cleared when it is fine again
+  syncedAt        DateTime  @default(now())
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@id([shop, id])
+  @@index([shop, inventoryItemId])
+  @@index([shop, sku])
+}
+
+// Stock of one variant at one location
+model InventoryLevel {
+  shop            String
+  inventoryItemId String
+  locationId      String
+  available       Int      @default(0)
+  onHand          Int      @default(0)
+  incoming        Int      @default(0) // Shopify's own incoming stock (transfers)
+  updatedAt       DateTime @updatedAt
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@id([shop, inventoryItemId, locationId])
+}
+
+// A bundle variant is made of `quantity` x each component. Sales of the bundle count as sales of its parts.
+model BundleComponent {
+  shop               String
+  bundleVariantId    String
+  componentVariantId String
+  quantity           Int
+  source             String // shopify (product bundle components) | manual (set up in the app)
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@id([shop, bundleVariantId, componentVariantId])
+  @@index([shop, componentVariantId])
+}
+
+// Units sold of one variant on one day (in the store's time zone), net of cancellations and refunds.
+// Only totals are kept: no orders, no customers.
+model SalesDay {
+  shop      String
+  variantId String
+  day       DateTime @db.Date
+  units     Int
+  revenue   Decimal  @default(0) @db.Decimal(14, 2)
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@id([shop, variantId, day])
+  @@index([shop, day])
+}
+
+// A day a variant had no stock at the counted locations. Those days are left out of its sales rate.
+model OutOfStockDay {
+  shop      String
+  variantId String
+  day       DateTime @db.Date
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@id([shop, variantId, day])
+  @@index([shop, day])
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  shop          String
+  name          String
+  email         String   @default("")
+  ccEmails      String   @default("") // comma separated
+  contactName   String   @default("")
+  phone         String   @default("")
+  address       String   @default("")
+  currency      String   @default("") // "" = the store's currency
+  leadTimeDays  Int? // days from ordering to stock arriving; null = the store default
+  minOrderValue Decimal? @db.Decimal(14, 2)
+  notes         String   @default("") // printed on purchase orders
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  shopRef Shop            @relation(fields: [shop], references: [shop], onDelete: Cascade)
+  items   SupplierItem[]
+  orders  PurchaseOrder[]
+
+  @@unique([shop, name])
+}
+
+// Which supplier a variant is bought from, and the supplier's terms for it. One supplier per variant.
+model SupplierItem {
+  shop         String
+  variantId    String
+  supplierId   String
+  supplierSku  String   @default("")
+  cost         Decimal? @db.Decimal(14, 4) // the supplier's price per unit; null = Shopify's cost per item
+  casePack     Int? // sold in packs of this many units
+  minOrderQty  Int? // smallest order in units
+  leadTimeDays Int? // overrides the supplier's lead time
+  updatedAt    DateTime @updatedAt
+
+  shopRef  Shop     @relation(fields: [shop], references: [shop], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@id([shop, variantId])
+  @@index([supplierId])
+}
+
+// The merchant's own planning choices for one variant. Anything left empty uses the store settings.
+model VariantPlan {
+  shop        String
+  variantId   String
+  ignore      Boolean  @default(false) // never suggest reordering (discontinued, made to order)
+  daysToCover Int?
+  safetyDays  Int?
+  rateOverride Decimal? @db.Decimal(12, 4) // "I expect to sell this many per day"
+  qtyOverride Int? // the quantity to order next, instead of the suggestion; cleared when it is ordered
+  note        String   @default("")
+  updatedAt   DateTime @updatedAt
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@id([shop, variantId])
+}
+
+model PurchaseOrder {
+  id           String    @id @default(cuid())
+  shop         String
+  number       Int // per shop: PO-0001
+  supplierId   String
+  status       String    @default("draft") // draft | sent | partial | received | cancelled
+  locationId   String // where the stock is received
+  currency     String
+  expectedAt   DateTime? @db.Date
+  shippingCost Decimal   @default(0) @db.Decimal(14, 2)
+  notes        String    @default("")
+  sentAt       DateTime?
+  receivedAt   DateTime?
+  cancelledAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  shopRef  Shop                @relation(fields: [shop], references: [shop], onDelete: Cascade)
+  // NoAction (checked at the end of the statement), not Restrict: deleting a Shop cascades to both tables.
+  // Deleting a supplier that still has purchase orders fails, and the app says so first.
+  supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: NoAction)
+  lines    PurchaseOrderLine[]
+  receipts Receipt[]
+
+  @@unique([shop, number])
+  @@index([shop, status])
+  @@index([supplierId])
+}
+
+model PurchaseOrderLine {
+  id          String  @id @default(cuid())
+  poId        String
+  variantId   String
+  // Copied when the line is added, so the order still reads right if the product changes or is deleted
+  sku         String  @default("")
+  title       String
+  supplierSku String  @default("")
+  quantity    Int
+  received    Int     @default(0)
+  unitCost    Decimal @default(0) @db.Decimal(14, 4)
+  position    Int     @default(0)
+
+  po PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+  @@index([variantId])
+}
+
+// Stock received against a purchase order. The row is written before Shopify is changed; its id is the
+// idempotency key, so retrying a failed receipt can never add the stock twice.
+model Receipt {
+  id         String   @id @default(cuid())
+  shop       String
+  poId       String
+  lines      Json // [{ lineId, variantId, inventoryItemId, quantity }]
+  status     String   @default("pending") // pending | done | failed | undone
+  error      String?
+  updateCost Boolean  @default(false)
+  undoOf     String? // the receipt this one reverses
+  createdAt  DateTime @default(now())
+
+  shopRef Shop          @relation(fields: [shop], references: [shop], onDelete: Cascade)
+  po      PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+
+  @@index([poId])
+}
+
+// Emails the app sent (or tried to), for the settings page and support. No email bodies are kept.
+model EmailLog {
+  id        String   @id @default(cuid())
+  shop      String
+  kind      String // weekly | low-stock | purchase-order | test
+  to        String
+  subject   String
+  status    String // sent | failed | skipped
+  error     String?
+  createdAt DateTime @default(now())
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@index([shop, createdAt])
+}

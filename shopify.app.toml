@@ -1,0 +1,53 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+# client_id is filled by `npm run config:link` (create a NEW app "Restock" there; do not link the uploader).
+
+client_id = ""
+name = "Restock"
+embedded = true
+application_url = "https://shopify.dev/apps/default-app-home"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+# read_products:   variants, SKUs, prices, bundle components
+# write_inventory: stock per location (read), add stock when a purchase order is received, cost per item
+# read_locations:  location names
+# read_orders:     sales history (only line items and dates; no customer data is read). Orders are protected
+#                  customer data: request Level 1 access in the Partner Dashboard before going live.
+# read_all_orders: add it here ONLY after Shopify approves it (Partner Dashboard > API access requests).
+#                  Without it Shopify gives the app the last 60 days of orders.
+scopes = "read_products,write_inventory,read_locations,read_orders"
+
+[webhooks]
+# Same version as apiVersion in app/shopify.server.ts
+api_version = "2026-10"
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/subscriptions_update"
+  topics = [ "app_subscriptions/update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/inventory_levels/update"
+  topics = [ "inventory_levels/update" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/products/delete"
+  topics = [ "products/delete" ]
+
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/compliance"
+  compliance_topics = [ "customers/data_request", "customers/redact", "shop/redact" ]
+
+[auth]
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true
