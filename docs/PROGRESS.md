@@ -64,9 +64,32 @@ read as 0; duplicate supplier names differing only in case.
 4. Plans in Managed Pricing named Free / Starter / Growth / Pro with prices and trial.
 5. Check the App Store name "Restock" is free (backups in the plan PDF).
 
+## Go-live status (2026-10-12, owner paused here)
+
+- Code on GitHub: https://github.com/Munish86/restock-app (`main`); every push redeploys Railway.
+- Railway project "courageous-compassion" / "production": Postgres + Redis Online; web service `restock-app` Online
+  at https://restock-app-production.up.railway.app. Web variables: `DATABASE_URL=${{Postgres.DATABASE_URL}}`,
+  `REDIS_URL=${{Redis.REDIS_URL}}`, `PORT=3000`, `SHOPIFY_APP_URL`, `SCOPES`, `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`,
+  `APP_HANDLE=restock`. An unattached volume `redis-volume-7wJH` can be deleted.
+- Shopify Partner app "Restock", client_id `fc0ae5925d98dec9609df1b38c3b7062`, linked in `shopify.app.toml` with the
+  Railway URLs (config:link had rewritten the file; restored).
+
+Still to do, in order:
+1. Worker service on Railway: same repo, start command `npm run worker`, same variables (no PORT), no domain.
+   Without it nothing syncs (jobs wait in Redis).
+2. `npm run deploy` from this folder (sends the app URL, scopes and webhooks to Shopify; until then Admin shows example.com).
+3. Install on the dev store `bulk-uploader-test` and test the flow below.
+4. Cloudflare R2: bucket `restock-files`, lifecycle delete after 8 days, Account API token (Object Read & Write, that
+   bucket only); `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` on both services.
+   Needed for supplier sheet import (web and worker have separate disks).
+5. Resend + verified domain (`RESEND_API_KEY`, `EMAIL_FROM`), `SUPPORT_EMAIL`.
+6. Partner Dashboard: Public distribution, protected customer data (Level 1, orders), `read_all_orders`, Managed
+   Pricing. The owner mentioned only Free and Pro: confirm, then trim `app/lib/plans.ts` and the Plans page.
+7. Listing and review.
+
 ## Next (resume here)
 
-1. With the owner: install on the dev store, create a few products with SKUs, stock and test orders, run the first
+1. With the owner: finish "Still to do" 1-3 above, then install on the dev store, create a few products with SKUs, stock and test orders, run the first
    sync, check the reorder list, make a PO, email it, receive it, undo it. Fix what turns up.
 2. Production: Railway services (web + worker), Postgres, Redis, R2, Resend env vars, `npm run deploy`.
 3. Listing: description, screenshots (the browser test screenshots in `test/browser/.out/` show every page),
