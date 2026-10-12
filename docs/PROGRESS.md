@@ -74,11 +74,15 @@ read as 0; duplicate supplier names differing only in case.
 - Shopify Partner app "Restock", client_id `fc0ae5925d98dec9609df1b38c3b7062`, linked in `shopify.app.toml` with the
   Railway URLs (config:link had rewritten the file; restored).
 
+Done on 2026-10-12: worker service `restock-app-worker` running ("Worker started"; R2 warning expected),
+`npm run deploy` done, app installed on the dev store `bulk-uploader-test`; it opens in Admin and the first sync
+worked (5 variants, no sales yet because the dev store had no orders in 60 days).
+
 Still to do, in order:
-1. Worker service on Railway: same repo, start command `npm run worker`, same variables (no PORT), no domain.
-   Without it nothing syncs (jobs wait in Redis).
-2. `npm run deploy` from this folder (sends the app URL, scopes and webhooks to Shopify; until then Admin shows example.com).
-3. Install on the dev store `bulk-uploader-test` and test the flow below.
+3. Test on the dev store: give 2-3 products a SKU, cost per item and different stock; create 5-8 orders (Orders >
+   Create order > Mark as paid); Sync now; check Needs ordering and "Why?"; Suppliers > from vendors or Add supplier
+   (own email); tick items > Create purchase orders; Mark as sent; Receive stock (check the stock in Shopify);
+   Undo the receipt; PDF, Dead stock, Settings, Plans. Fix whatever the owner reports.
 4. Cloudflare R2: bucket `restock-files`, lifecycle delete after 8 days, Account API token (Object Read & Write, that
    bucket only); `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` on both services.
    Needed for supplier sheet import (web and worker have separate disks).
