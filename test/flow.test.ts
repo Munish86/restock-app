@@ -418,7 +418,7 @@ describe("alerts", () => {
     expect(r.status).toBe("skipped"); // logged only in development
     const m = mailer.sent.at(-1)!;
     expect(m.to).toEqual(["owner@test-store.com"]);
-    expect(m.subject).toMatch(/^Restock: order \d+ items? this week$/);
+    expect(m.subject).toMatch(/^Reorder Desk: order \d+ items? this week$/);
     expect(m.unsubscribeUrl).toContain("/dl/alerts-off/weekly?");
     expect(m.html).toContain("Oslo Mug");
     expect(m.html).not.toContain("<script");

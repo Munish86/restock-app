@@ -2,7 +2,7 @@
 import type { MetaFunction } from "react-router";
 import { useLoaderData } from "react-router";
 
-export const meta: MetaFunction = () => [{ title: "Support · Restock" }];
+export const meta: MetaFunction = () => [{ title: "Support · Reorder Desk" }];
 
 export const loader = async () => ({
   // eslint-disable-next-line no-undef

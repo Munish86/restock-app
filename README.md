@@ -1,4 +1,4 @@
-# Restock (Shopify app)
+# Reorder Desk (Shopify app, code name restock-app)
 
 Stock forecasting and purchase orders for Shopify stores. "Know what to reorder this week, in 5 minutes."
 
@@ -86,9 +86,9 @@ On development stores test orders count as sales (they are the only orders there
 
 1. `npm install` (or copy `node_modules` from the uploader app; the dependencies are the same plus PGlite for tests)
 2. `cp .env.example .env` and set `DATABASE_URL` (a new database, not the uploader's).
-3. `npm run config:link` and choose **create a new app** called Restock (do not link the uploader app). Check
+3. `npm run config:link` and choose **create a new app** called Reorder Desk (do not link the uploader app). Check
    `shopify.app.toml` afterwards: `scopes` and the webhook `api_version = "2026-10"` must stay as they are.
-4. In the Partner Dashboard: Restock > API access > Protected customer data: select the data use for development.
+4. In the Partner Dashboard: Reorder Desk > API access > Protected customer data: select the data use for development.
 5. `npm run dev`, install on the development store. The first sync starts by itself.
 
 ## Tests

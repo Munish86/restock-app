@@ -146,7 +146,7 @@ export function SupplierImport({ suppliers, onImported }: { suppliers: Pick<Supp
         <s-text color="subdued">
           One row per item: its SKU (or barcode) and supplier, plus any of supplier SKU, cost, case pack, minimum order and lead time. Stocky
           exports, Shopify product exports and supplier price lists work; the columns are recognised by name.{" "}
-          <a href="/templates/Restock-Supplier-Template.csv" download>
+          <a href="/templates/Reorder-Desk-Supplier-Template.csv" download>
             Download a template
           </a>
           . Empty cells never erase what is saved.

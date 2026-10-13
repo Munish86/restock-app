@@ -94,7 +94,7 @@ export const loader = async ({ request, params }: LoaderFunctionArgs) => {
       const what = id === "weekly" ? "the weekly reorder email" : "low-stock alerts";
       return htmlPage(
         `Turn off ${what}?`,
-        `<form method="post"><p>Store: ${esc(shop)}</p><button type="submit">Turn off ${esc(what)}</button></form><p>You can turn it back on any time in Restock's Settings.</p>`,
+        `<form method="post"><p>Store: ${esc(shop)}</p><button type="submit">Turn off ${esc(what)}</button></form><p>You can turn it back on any time in Reorder Desk's Settings.</p>`,
       );
     }
   }
@@ -114,7 +114,7 @@ export const action = async ({ request, params }: ActionFunctionArgs) => {
     else settings.alerts.lowStock = false;
     await prisma.shop.update({ where: { shop }, data: { settings: settings as unknown as Prisma.InputJsonValue } });
   }
-  return htmlPage("Done", `<p>${id === "weekly" ? "The weekly reorder email" : "Low-stock alerts"} for ${esc(shop)} are off. Turn them back on any time in Restock's Settings.</p>`);
+  return htmlPage("Done", `<p>${id === "weekly" ? "The weekly reorder email" : "Low-stock alerts"} for ${esc(shop)} are off. Turn them back on any time in Reorder Desk's Settings.</p>`);
 };
 
 function htmlPage(title: string, body: string) {

@@ -199,9 +199,9 @@ describe("helpers", () => {
   });
 
   it("reads plan names", () => {
-    expect(planKeyFromName("Growth plan")).toBe("growth");
+    expect(planKeyFromName("Pro plan")).toBe("pro");
     expect(planKeyFromName("PRO")).toBe("pro");
-    expect(planKeyFromName("Starter")).toBe("starter");
+    expect(planKeyFromName("Growth")).toBe("free");
     expect(planKeyFromName("Professional")).toBe("free");
     expect(planKeyFromName(null)).toBe("free");
   });

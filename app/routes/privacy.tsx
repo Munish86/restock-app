@@ -3,7 +3,7 @@
 import type { MetaFunction } from "react-router";
 import { useLoaderData } from "react-router";
 
-export const meta: MetaFunction = () => [{ title: "Privacy policy · Restock" }];
+export const meta: MetaFunction = () => [{ title: "Privacy policy · Reorder Desk" }];
 
 export const loader = async () => ({
   // eslint-disable-next-line no-undef
@@ -18,7 +18,7 @@ export default function Privacy() {
     <main style={{ maxWidth: 760, margin: "0 auto", padding: "32px 16px", font: "16px/1.6 system-ui, sans-serif" }}>
       <h1>Privacy policy</h1>
       <p>
-        Restock (&quot;the app&quot;) helps Shopify merchants decide what to reorder, and create and receive purchase orders. This page explains
+        Reorder Desk (&quot;the app&quot;) helps Shopify merchants decide what to reorder, and create and receive purchase orders. This page explains
         what the app reads, what it stores, why, and for how long.
       </p>
       <h2>What the app reads from Shopify</h2>
@@ -49,11 +49,11 @@ export default function Privacy() {
       <h2>Emails</h2>
       <p>
         The app sends purchase orders to the supplier addresses you enter, and reorder emails and low-stock alerts to the addresses in your
-        settings. It sends no marketing. Emails are delivered through an email service provider used only for sending them.
+        settings. It sends no marketing. Emails are delivered through Resend, used only for sending them.
       </p>
       <h2>Where the data is kept</h2>
       <p>
-        On the app&apos;s servers and its file storage, used only to run the app. The data is not sold or shared with anyone else. Payments are
+        On the app&apos;s servers at Railway (database and app) and Cloudflare R2 (uploaded sheets), used only to run the app. The data is not sold or shared with anyone else. Payments are
         handled by Shopify; the app never sees card details.
       </p>
       <h2>Deleting your data</h2>

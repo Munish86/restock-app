@@ -2,7 +2,7 @@
 // Partner Dashboard). The plan names there must contain the `key` below (any case); an unknown or missing
 // subscription counts as Free. Used by the server (limits) and the browser (plan page): no server-only code here.
 
-export type PlanKey = "free" | "starter" | "growth" | "pro";
+export type PlanKey = "free" | "pro";
 
 export interface Plan {
   key: PlanKey;
@@ -23,39 +23,23 @@ export const PLANS: Plan[] = [
     features: ["Forecasts for your 50 best-selling variants", "Purchase orders and receiving", "Weekly reorder email"],
   },
   {
-    key: "starter",
-    name: "Starter",
-    price: "$19 / month",
-    variants: 500,
-    locations: 1,
-    features: ["Up to 500 variants", "Everything in Free", "Supplier import from a sheet or Stocky"],
-  },
-  {
-    key: "growth",
-    name: "Growth",
-    price: "$39 / month",
-    variants: 5000,
-    locations: 1,
-    features: ["Up to 5,000 variants", "Everything in Starter", "Seasonal forecasts from last year's sales"],
-  },
-  {
     key: "pro",
     name: "Pro",
-    price: "$79 / month",
+    price: "$29 / month",
     variants: null,
     locations: null,
-    features: ["No variant limit", "Stock counted across several locations", "Priority email support"],
+    features: ["No variant limit", "Stock counted across several locations", "Seasonal forecasts from last year's sales", "Priority email support"],
   },
 ];
 
 export const planByKey = (key?: string | null): Plan => PLANS.find((p) => p.key === key) || PLANS[0];
 
-// Shopify subscription name ("Growth", "Growth plan", "PRO") -> plan key. Checked from the most expensive
-// down, so a name like "Pro Growth" can never give less than was paid for.
+// Shopify subscription name ("Pro", "Pro plan", "PRO") -> plan key. Checked from the most expensive down, so a
+// name holding two plan words can never give less than was paid for.
 export function planKeyFromName(name?: string | null): PlanKey {
   const n = String(name || "").toLowerCase();
   return ([...PLANS].reverse().find((p) => p.key !== "free" && new RegExp(`\\b${p.key}\\b`).test(n))?.key ?? "free") as PlanKey;
 }
 
-// Seasonal adjustment needs a year of history; it is part of Growth and Pro
-export const hasSeasonal = (plan: Plan) => plan.key === "growth" || plan.key === "pro";
+// Seasonal adjustment needs a year of history; it is part of Pro
+export const hasSeasonal = (plan: Plan) => plan.key === "pro";

@@ -2,6 +2,7 @@
 // Production uses Resend (RESEND_API_KEY + EMAIL_FROM). Without a key, emails are only logged, so local
 // development never mails anyone. Every attempt is written to EmailLog (no bodies are kept).
 import prisma from "../db.server";
+import { appHandle } from "./shops";
 
 export interface Attachment {
   filename: string;
@@ -119,9 +120,7 @@ export async function sendEmail(shop: string, kind: EmailKind, m: EmailMessage):
 // Link to a page of the app inside Shopify Admin
 export function adminAppUrl(shop: string, path = "") {
   const store = shop.replace(".myshopify.com", "");
-  // eslint-disable-next-line no-undef
-  const handle = process.env.APP_HANDLE || "restock";
-  return `https://admin.shopify.com/store/${store}/apps/${handle}${path}`;
+  return `https://admin.shopify.com/store/${store}/apps/${appHandle()}${path}`;
 }
 
 export const esc = (s: unknown) =>

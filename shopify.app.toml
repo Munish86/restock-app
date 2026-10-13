@@ -1,9 +1,11 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
-# The production app "Restock", hosted on Railway. After any `npm run config:link`, check this file again:
+# The production app "Reorder Desk" (the code folder and Railway service keep the old name restock-app), hosted on
+# Railway. After any `npm run config:link`, check this file again:
 # the CLI rewrites it (api_version, URLs, webhooks).
 
 client_id = "fc0ae5925d98dec9609df1b38c3b7062"
-name = "Restock"
+name = "Reorder Desk"
+handle = "reorder-desk"
 embedded = true
 application_url = "https://restock-app-production.up.railway.app"
 
@@ -54,6 +56,5 @@ redirect_urls = [
 ]
 
 [build]
-include_config_on_deploy = true
 # Production URLs: "npm run dev" must not replace them with a tunnel
 automatically_update_urls_on_dev = false

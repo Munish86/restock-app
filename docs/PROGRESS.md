@@ -1,6 +1,25 @@
-# Restock: progress and handoff
+# Reorder Desk (code name Restock): progress and handoff
 
-Read this first when starting a new session. Last updated: 2026-10-12 (version 1 written and tested in one session).
+Read this first when starting a new session. Last updated: 2026-10-13 (renamed, plans trimmed, launch docs).
+Owner's launch steps in order (Hinglish): `docs/LAUNCH.md`. Listing text + reviewer instructions: `docs/LISTING.md`.
+
+## 2026-10-13: renamed to Reorder Desk, Free + Pro, launch docs
+
+- "Restock" was already taken on the App Store ("Restock: Inventory Management", slugs restock-1 .. restock-11;
+  Replenly was renamed from it). Should have been checked before the Partner app was created; the plan had said so.
+  Owner chose **Reorder Desk**. Changed: toml `name` + `handle = "reorder-desk"`, every merchant-facing text
+  (emails, landing, privacy, support, unsubscribe pages), supplier template file name. Folder, repo, package,
+  Railway services, `gid://restock-app/...` references and DB stay `restock`.
+- Upgrade gave 404 on `/charges/restock/pricing_plans`: Managed Pricing not set up yet (and the handle may differ).
+  The app now reads its handle from Shopify (`currentAppInstallation.app.handle`, in `syncPlan`); `APP_HANDLE`
+  is only the worker's fallback (default `reorder-desk`).
+- Plans: owner chose **Free + Pro** only. Free 50 variants / 1 location; Pro unlimited, all locations, seasonal.
+  Pro shown as $29/month until the owner confirms the price.
+- Landing page: "Shop domain" login form removed (App Store requirement 2.3.1). `.dockerignore` now keeps
+  `.env`, `.git`, `.shopify`, `storage` and browser test output out of the image. Privacy page names Railway,
+  Cloudflare R2 and Resend.
+- Not installable on a live (non-dev) store yet: no distribution chosen. Must be **Public**, never Custom.
+- Verified: `npm test` 49 passed, `npm run test:browser` all passed, typecheck, lint, build clean.
 
 ## Goal
 
@@ -18,11 +37,11 @@ check and the uploader launch are still the owner's call on what goes live first
 | Base | Copy of the uploader app's base (template, OAuth, Prisma, BullMQ, R2, Polaris wrappers, Managed Pricing). Separate app, separate database |
 | Data from Shopify | Bulk operations (one export file) for variants+stock+bundle components and for orders; both run at the same time (5 allowed per shop since 2026-01). Stock kept live with `inventory_levels/update`; everything else re-synced every 6 hours |
 | Sales history | Only daily totals per variant (`SalesDay`); no orders, no customers. First sync: 730 days with `read_all_orders`, else 60. Later syncs re-read the last 35 days (refunds/cancellations) |
-| Forecast | Explainable, no AI: weighted weekly average (0.85 per week back), out-of-stock days left out, seasonal factor from last year (Growth/Pro), case pack + MOQ rounding, every number has a "why" line |
+| Forecast | Explainable, no AI: weighted weekly average (0.85 per week back), out-of-stock days left out, seasonal factor from last year (Pro), case pack + MOQ rounding, every number has a "why" line |
 | Stock-out history | `OutOfStockDay` written at every sync from then on; earlier stock-outs are unknown |
 | Bundles | Shopify `productVariantComponents` read on sync; manual bundles for other apps. Bundle sales expanded into parts at forecast time; bundles themselves are not reordered |
-| Locations | Plan-limited: Free/Starter/Growth count 1 location (the oldest, normally the main one, or the chosen one), Pro several |
-| Plan limit | Variants (Free 50 / Starter 500 / Growth 5,000 / Pro unlimited). Over the limit: best sellers get suggestions |
+| Locations | Plan-limited: Free counts 1 location (the oldest, normally the main one, or the chosen one), Pro several |
+| Plan limit | Variants (Free 50 / Pro unlimited; Starter/Growth dropped 2026-10-13). Over the limit: best sellers get suggestions |
 | Purchase orders | Draft per supplier from the reorder list (merged into an open draft), numbers `PO-0001` per shop. Drafts do not count as on order unless the setting says so |
 | Receiving | `Receipt` row saved first; its id is the `@idempotent` key (required for inventory mutations since API 2026-04); `changeFromQuantity: null`; reference `gid://restock-app/PurchaseOrder/<id>`. Undo = a reversing receipt (reason `correction`) |
 | Emails | Resend HTTP API (no SDK). Weekly email only when something needs ordering; daily low-stock alert once per episode (`Variant.lowAlertAt`); signed one-click unsubscribe. Without a key: logged only |
@@ -58,11 +77,11 @@ read as 0; duplicate supplier names differing only in case.
 
 ## Waiting on the owner
 
-1. Partner Dashboard: create a new app "Restock" (`npm run config:link` > create new), a new database URL in `.env`.
+1. Done 2026-10-12: Partner app created (then named Restock), Railway Postgres.
 2. Protected customer data (Level 1, orders) and `read_all_orders`: request early, approval can take days to weeks.
 3. Resend account + a verified sending domain (for supplier emails and alerts); `SUPPORT_EMAIL`.
-4. Plans in Managed Pricing named Free / Starter / Growth / Pro with prices and trial.
-5. Check the App Store name "Restock" is free (backups in the plan PDF).
+4. Plans in Managed Pricing named Free / Pro with prices and trial.
+5. Done 2026-10-13: "Restock" was taken; renamed to Reorder Desk.
 
 ## Go-live status (2026-10-12, owner paused here)
 
@@ -78,27 +97,19 @@ Done on 2026-10-12: worker service `restock-app-worker` running ("Worker started
 `npm run deploy` done, app installed on the dev store `bulk-uploader-test`; it opens in Admin and the first sync
 worked (5 variants, no sales yet because the dev store had no orders in 60 days).
 
-Still to do, in order:
-3. Test on the dev store: give 2-3 products a SKU, cost per item and different stock; create 5-8 orders (Orders >
-   Create order > Mark as paid); Sync now; check Needs ordering and "Why?"; Suppliers > from vendors or Add supplier
-   (own email); tick items > Create purchase orders; Mark as sent; Receive stock (check the stock in Shopify);
-   Undo the receipt; PDF, Dead stock, Settings, Plans. Fix whatever the owner reports.
-4. Cloudflare R2: bucket `restock-files`, lifecycle delete after 8 days, Account API token (Object Read & Write, that
-   bucket only); `R2_BUCKET`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` on both services.
-   Needed for supplier sheet import (web and worker have separate disks).
-5. Resend + verified domain (`RESEND_API_KEY`, `EMAIL_FROM`), `SUPPORT_EMAIL`.
-6. Partner Dashboard: Public distribution, protected customer data (Level 1, orders), `read_all_orders`, Managed
-   Pricing. The owner mentioned only Free and Pro: confirm, then trim `app/lib/plans.ts` and the Plans page.
-7. Listing and review.
+Still to do: see `docs/LAUNCH.md` (rename deploy, Public distribution, Managed Pricing, protected data, R2, Resend,
+dev-store test, listing, submit).
 
 ## Next (resume here)
 
-1. With the owner: finish "Still to do" 1-3 above, then install on the dev store, create a few products with SKUs, stock and test orders, run the first
-   sync, check the reorder list, make a PO, email it, receive it, undo it. Fix what turns up.
-2. Production: Railway services (web + worker), Postgres, Redis, R2, Resend env vars, `npm run deploy`.
-3. Listing: description, screenshots (the browser test screenshots in `test/browser/.out/` show every page),
-   reviewer instructions (a dev store with orders), privacy text review.
-4. Later (1.1): AI weekly summary and "what should I order for next month's sale?" (optional, never pushed).
+1. Owner follows `docs/LAUNCH.md` 1-3 (`npm run deploy` for the new name/handle, `APP_HANDLE=reorder-desk` on
+   Railway, Public distribution, Managed Pricing plans "Free" / "Pro"); then the dev-store test (step 7). Fix
+   whatever turns up.
+2. Owner confirms the Pro price; change `app/lib/plans.ts` and `docs/LISTING.md` if not $29.
+3. After `read_all_orders` is approved: add it to `scopes` in `shopify.app.toml`, `npm run deploy`.
+4. Screenshots + icon, submit (`docs/LISTING.md`). Optional: a separate Custom-distribution app for the owner's
+   live store before approval (needs a second client id in the same deployment).
+5. Later (1.1): AI weekly summary and "what should I order for next month's sale?" (optional, never pushed).
 
 ## Commands
 

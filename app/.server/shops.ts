@@ -29,11 +29,22 @@ export async function setPlanFromSubscriptions(shop: string, subs: Subscription[
   return plan;
 }
 
+// The app's handle in Shopify Admin URLs (admin.shopify.com/store/<store>/apps/<handle>). Shopify picks it when the
+// app is created and it can differ from the name, so the one Shopify reports wins over APP_HANDLE. Processes that
+// never talk to Shopify as a request (the worker) use APP_HANDLE.
+let knownHandle: string | null = null;
+function rememberAppHandle(handle: unknown) {
+  if (typeof handle === "string" && /^[a-z0-9-]{1,100}$/.test(handle)) knownHandle = handle;
+}
+// eslint-disable-next-line no-undef
+export const appHandle = () => knownHandle || process.env.APP_HANDLE || "reorder-desk";
+
 // The subscription as Shopify reports it now. `graphql` is the admin client of the request.
 export async function syncPlan(shop: string, graphql: (q: string) => Promise<Response>) {
   const res = await graphql(`#graphql
-    query activeSubscriptions { currentAppInstallation { activeSubscriptions { name status test } } }`);
+    query activeSubscriptions { currentAppInstallation { app { handle } activeSubscriptions { name status test } } }`);
   const { data } = await res.json();
+  rememberAppHandle(data?.currentAppInstallation?.app?.handle);
   return setPlanFromSubscriptions(shop, data?.currentAppInstallation?.activeSubscriptions ?? []);
 }
 

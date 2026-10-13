@@ -58,7 +58,7 @@ const footer = (shop: string, kind: "weekly" | "low-stock") => {
   const off = absoluteSignedUrl("alerts-off", shop, kind, 120 * 24 * 3600);
   return {
     off,
-    html: `You get this email because ${kind === "weekly" ? "the weekly reorder email" : "low-stock alerts"} are on in Restock for ${esc(shop)}. Change this in the app's Settings, or <a href="${esc(off)}" style="color:#777">turn it off</a>.`,
+    html: `You get this email because ${kind === "weekly" ? "the weekly reorder email" : "low-stock alerts"} are on in Reorder Desk for ${esc(shop)}. Change this in the app's Settings, or <a href="${esc(off)}" style="color:#777">turn it off</a>.`,
   };
 };
 
@@ -72,7 +72,7 @@ export async function sendWeekly(shop: string, opts: { force?: boolean } = {}) {
   if (!rows.length && !opts.force) return { status: "skipped" as const, error: "Nothing to order this week." };
   const f = footer(shop, "weekly");
   const value = sum.toOrderValue > 0 ? ` (about ${money(sum.toOrderValue, p.currency)} at cost)` : "";
-  const subject = rows.length ? `Restock: order ${rows.length} item${rows.length === 1 ? "" : "s"} this week` : "Restock: nothing to order this week";
+  const subject = rows.length ? `Reorder Desk: order ${rows.length} item${rows.length === 1 ? "" : "s"} this week` : "Reorder Desk: nothing to order this week";
   const intro = rows.length
     ? `${rows.length} item${rows.length === 1 ? "" : "s"} in ${esc(s.name || shop)} need${rows.length === 1 ? "s" : ""} ordering${value}. ${sum.counts.out ? `${sum.counts.out} already out of stock.` : ""}`
     : `Nothing in ${esc(s.name || shop)} needs ordering this week.`;
@@ -118,7 +118,7 @@ export async function sendLowStock(shop: string) {
   const intro = `${fresh.length} item${fresh.length === 1 ? "" : "s"} in ${esc(s.name || shop)} ${fresh.length === 1 ? "needs" : "need"} ordering now.`;
   const r = await sendEmail(shop, "low-stock", {
     to: recipientsOf(s.email, settings.alerts.recipients),
-    subject: `Restock: ${fresh.length} item${fresh.length === 1 ? "" : "s"} to order now`,
+    subject: `Reorder Desk: ${fresh.length} item${fresh.length === 1 ? "" : "s"} to order now`,
     html: layout({ title: "Low stock", intro, body: itemsTable(fresh, p.today) + button(adminAppUrl(shop), "Open the reorder list"), footer: f.html }),
     text: `${intro}\n\n${itemsText(fresh, p.today)}\n\nOpen the reorder list: ${adminAppUrl(shop)}\nTurn these alerts off: ${f.off}`,
     unsubscribeUrl: f.off,
@@ -162,7 +162,7 @@ export async function emailPo(shop: string, poId: string, opts: { to?: string; c
     cc: cc.list,
     replyTo,
     subject: `Purchase order ${d.number} from ${d.company.name}`,
-    html: layout({ title: `Purchase order ${d.number}`, intro, body, footer: `Sent for ${esc(d.company.name)} with Restock.` }),
+    html: layout({ title: `Purchase order ${d.number}`, intro, body, footer: `Sent for ${esc(d.company.name)} with Reorder Desk.` }),
     text:
       `Purchase order ${d.number} from ${d.company.name}: ${d.lines.length} items, ${units} units, ${money(d.total, d.currency)}.\n\n` +
       (message ? `${message}\n\n` : "") +
@@ -185,14 +185,14 @@ export async function sendTestEmail(shop: string) {
   if (!to.length) throw new InputError("Add an email address for alerts first.");
   const r = await sendEmail(shop, "test", {
     to,
-    subject: "Restock: test email",
+    subject: "Reorder Desk: test email",
     html: layout({
       title: "Emails work",
-      intro: "This is a test from Restock. Weekly reorder emails and low-stock alerts will arrive at this address.",
-      body: button(adminAppUrl(shop), "Open Restock"),
-      footer: `Sent because someone clicked "Send a test email" in Restock for ${esc(shop)}.`,
+      intro: "This is a test from Reorder Desk. Weekly reorder emails and low-stock alerts will arrive at this address.",
+      body: button(adminAppUrl(shop), "Open Reorder Desk"),
+      footer: `Sent because someone clicked "Send a test email" in Reorder Desk for ${esc(shop)}.`,
     }),
-    text: "This is a test from Restock. Weekly reorder emails and low-stock alerts will arrive at this address.",
+    text: "This is a test from Reorder Desk. Weekly reorder emails and low-stock alerts will arrive at this address.",
   });
   return { ...r, to };
 }

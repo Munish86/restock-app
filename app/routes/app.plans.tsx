@@ -5,7 +5,7 @@ import { useLoaderData } from "react-router";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { authenticate } from "../shopify.server";
 import prisma from "../db.server";
-import { syncPlan } from "../.server/shops";
+import { appHandle, syncPlan } from "../.server/shops";
 import { PLANS, planByKey } from "../lib/plans";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
@@ -17,13 +17,11 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     prisma.location.count({ where: { shop, isActive: true } }),
   ]);
   const store = shop.replace(".myshopify.com", "");
-  // eslint-disable-next-line no-undef
-  const handle = process.env.APP_HANDLE || "restock";
   return {
     current: planKey,
     variants,
     locations,
-    pricingUrl: `https://admin.shopify.com/store/${store}/charges/${handle}/pricing_plans`,
+    pricingUrl: `https://admin.shopify.com/store/${store}/charges/${appHandle()}/pricing_plans`,
   };
 };
 

@@ -118,7 +118,7 @@ export function SettingsForm({ googleEmail }: { googleEmail: string }) {
           </s-grid>
           <Checkbox
             label="Use last year's sales to raise or lower forecasts for the coming weeks (festivals, seasons)"
-            details="Needs a year of history; part of the Growth and Pro plans."
+            details="Needs a year of history; part of the Pro plan."
             checked={f.seasonal}
             onChange={(v) => setF({ seasonal: v })}
           />
