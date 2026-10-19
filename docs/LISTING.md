@@ -31,7 +31,7 @@ Import your suppliers from a sheet.
 2. Purchase orders per supplier, emailed as PDF and CSV
 3. Receive stock into Shopify in one click, with partial receiving and undo
 4. Bundles, case packs, minimum orders and supplier lead times built in
-5. Weekly reorder email, low-stock alerts and a dead stock report
+5. Weekly reorder email, low-stock alerts (email, and on Pro also SMS or WhatsApp) and a dead stock report
 
 ## Search terms (up to 5)
 
@@ -48,7 +48,7 @@ Plan names must contain "Free" / "Pro" exactly as words: the app reads the plan 
 | Plan | Price | Trial | Shown features |
 |---|---|---|---|
 | Free | $0 | - | Forecasts for the 50 best-selling variants, purchase orders and receiving, weekly reorder email |
-| Pro | $29 / month (owner to confirm) | 14 days | No variant limit, several locations, seasonal forecasts, priority email support |
+| Pro | $29 / month (owner to confirm) | 14 days | No variant limit, several locations, seasonal forecasts, SMS and WhatsApp alerts (100 messages a month), priority email support |
 
 ## Screenshots (1600 x 900, 3-6)
 

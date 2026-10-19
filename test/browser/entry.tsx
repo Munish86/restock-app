@@ -241,21 +241,29 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     });
   }
   if (url === "/app/api/settings") {
+    const pro = new URLSearchParams(location.search).get("plan") === "pro";
+    if (method === "POST" && b.action === "test-message") w.__testMessage = true;
     const state = {
       settings: method === "POST" && b.settings ? b.settings : DEFAULTS,
       shopEmail: "owner@store.test",
       shopName: "Test Store",
       currency: "USD",
       timezone: "Asia/Kolkata",
-      plan: { key: "free", name: "Free", locations: 1 },
+      plan: pro ? { key: "pro", name: "Pro", locations: null, messages: 100 } : { key: "free", name: "Free", locations: 1, messages: 0 },
       locations: [
         { id: "gid://shopify/Location/1", name: "Warehouse", isActive: true },
         { id: "gid://shopify/Location/2", name: "Shop front", isActive: true },
       ],
       emails: [],
       emailLive: false,
+      messages: w.__testMessage
+        ? [{ kind: "test", channel: "sms", to: "+15550102000", text: "Reorder Desk: test message for Test Store.", status: "sent", error: null, at: "2026-10-19T09:00:00Z" }]
+        : [],
+      messagesUsed: w.__testMessage ? 1 : 0,
+      textLive: { sms: true, whatsapp: false },
     };
     w.__settings = state.settings;
+    if (method === "POST" && b.action === "test-message") return json({ ...state, result: { status: "sent", sent: 1, to: ["+15550102000"] } });
     if (method === "POST" && b.action) return json({ ...state, result: { status: "skipped", to: ["owner@store.test"] } });
     return json(state);
   }

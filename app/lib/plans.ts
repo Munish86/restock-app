@@ -10,6 +10,7 @@ export interface Plan {
   price: string; // shown on the plan page; the real price is whatever is set in the Partner Dashboard
   variants: number | null; // variants that get forecasts and suggestions; null = no limit
   locations: number | null; // locations whose stock can be counted; null = no limit
+  messages: number; // SMS + WhatsApp alerts per calendar month (UTC); each message to each number counts. 0 = none
   features: string[];
 }
 
@@ -20,6 +21,7 @@ export const PLANS: Plan[] = [
     price: "$0",
     variants: 50,
     locations: 1,
+    messages: 0,
     features: ["Forecasts for your 50 best-selling variants", "Purchase orders and receiving", "Weekly reorder email"],
   },
   {
@@ -28,7 +30,14 @@ export const PLANS: Plan[] = [
     price: "$29 / month",
     variants: null,
     locations: null,
-    features: ["No variant limit", "Stock counted across several locations", "Seasonal forecasts from last year's sales", "Priority email support"],
+    messages: 100,
+    features: [
+      "No variant limit",
+      "Stock counted across several locations",
+      "Seasonal forecasts from last year's sales",
+      "Low-stock alerts by SMS and WhatsApp (100 messages a month)",
+      "Priority email support",
+    ],
   },
 ];
 

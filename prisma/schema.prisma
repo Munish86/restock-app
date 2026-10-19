@@ -53,6 +53,9 @@ model Shop {
   // Alerts: when each was last sent (claimed with a conditional update, so two workers never send twice)
   weeklySentAt  DateTime?
   dailyCheckAt  DateTime?
+  // SMS + WhatsApp messages sent this month (UTC "YYYY-MM"), counted against the plan before each send
+  msgMonth      String    @default("")
+  msgCount      Int       @default(0)
   installedAt   DateTime  @default(now())
   uninstalledAt DateTime?
   updatedAt     DateTime  @updatedAt
@@ -71,6 +74,7 @@ model Shop {
   orders    PurchaseOrder[]
   receipts  Receipt[]
   emails    EmailLog[]
+  messages  MessageLog[]
 }
 
 // A sync, supplier import or other background run, carried out by the worker. One active job per shop.
@@ -345,6 +349,23 @@ model EmailLog {
   kind      String // weekly | low-stock | purchase-order | test
   to        String
   subject   String
+  status    String // sent | failed | skipped
+  error     String?
+  createdAt DateTime @default(now())
+
+  shopRef Shop @relation(fields: [shop], references: [shop], onDelete: Cascade)
+
+  @@index([shop, createdAt])
+}
+
+// One row per SMS / WhatsApp message the app tried to send (alerts and tests). Kept 6 months like EmailLog.
+model MessageLog {
+  id        String   @id @default(cuid())
+  shop      String
+  kind      String // weekly | low-stock | test
+  channel   String // sms | whatsapp
+  to        String
+  text      String // what was sent (item names and counts only)
   status    String // sent | failed | skipped
   error     String?
   createdAt DateTime @default(now())

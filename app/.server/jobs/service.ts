@@ -201,7 +201,7 @@ export const RETENTION = {
   salesDays: 800,
 };
 
-// Deletes old uploads, reports, jobs, email log rows and sales older than the forecast can use
+// Deletes old uploads, reports, jobs, email and message log rows and sales older than the forecast can use
 export async function cleanupOldData() {
   const storage = getStorage();
   const busy = (await prisma.job.findMany({ where: { status: { in: ACTIVE } }, select: { shop: true } })).map((j) => j.shop);
@@ -226,7 +226,9 @@ export async function cleanupOldData() {
     await prisma.job.delete({ where: { id: j.id } });
   }
 
-  const emails = await prisma.emailLog.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - RETENTION.emailDays * DAY) } } });
+  const logCutoff = new Date(Date.now() - RETENTION.emailDays * DAY);
+  const emails = await prisma.emailLog.deleteMany({ where: { createdAt: { lt: logCutoff } } });
+  await prisma.messageLog.deleteMany({ where: { createdAt: { lt: logCutoff } } });
   const old = new Date(Date.now() - RETENTION.salesDays * DAY);
   const sales = await prisma.salesDay.deleteMany({ where: { day: { lt: old } } });
   const outDays = await prisma.outOfStockDay.deleteMany({ where: { day: { lt: old } } });

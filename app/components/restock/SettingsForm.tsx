@@ -1,6 +1,6 @@
-// Settings: forecast defaults, which locations count, purchase order details, and alert emails.
+// Settings: forecast defaults, which locations count, purchase order details, alert emails and (Pro) SMS / WhatsApp.
 import { useEffect, useState } from "react";
-import { DEFAULTS, LIMITS, type Settings } from "../../lib/settings";
+import { channelsOf, DEFAULTS, LIMITS, MAX_PHONES, type PhoneChannel, type Settings } from "../../lib/settings";
 import { Button, Checkbox, NumberField, Select, TextField } from "../polaris";
 import { api, ApiError, post, toast, type SettingsData } from "./api";
 import { ErrorBanner, dateText } from "./ui";
@@ -65,13 +65,19 @@ export function SettingsForm({ googleEmail }: { googleEmail: string }) {
       })
       .finally(() => setBusy(""));
   };
-  const action = (what: "test-email" | "send-weekly") => {
+  const action = (what: "test-email" | "send-weekly" | "test-message") => {
     setBusy(what);
     setError(null);
-    post<SettingsData & { result: { status: string; error?: string; to?: string[] } }>("/app/api/settings", { action: what })
+    post<SettingsData & { result: { status: string; error?: string; to?: string[]; sent?: number } }>("/app/api/settings", { action: what })
       .then((d) => {
         setData(d);
         const r = d.result;
+        if (what === "test-message") {
+          if (r.status === "failed") setError(r.error || "The message was not sent.");
+          else if (r.status === "skipped") toast(r.error || "Not sent");
+          else toast(`${r.sent} message${r.sent === 1 ? "" : "s"} sent`);
+          return;
+        }
         if (r.status === "failed") setError(r.error || "The email was not sent.");
         else if (r.status === "skipped" && !d.emailLive) toast("Logged only: email sending is not set up on this server");
         else if (r.status === "skipped") toast(r.error || "Nothing to send");
@@ -224,6 +230,86 @@ export function SettingsForm({ googleEmail }: { googleEmail: string }) {
             </div>
           )}
         </s-stack>
+      </s-section>
+
+      <s-section heading="SMS and WhatsApp alerts">
+        {!data.plan.messages ? (
+          <s-stack direction="block" gap="small-200">
+            <s-text>Get low-stock alerts on your phone by SMS or WhatsApp, as well as by email. Part of the Pro plan.</s-text>
+            <s-stack direction="inline">
+              <s-button href="/app/plans">See plans</s-button>
+            </s-stack>
+          </s-stack>
+        ) : (
+          <s-stack direction="block" gap="base">
+            <s-grid gridTemplateColumns="repeat(auto-fit, minmax(240px, 1fr))" gap="base">
+              <TextField
+                label="Phone numbers"
+                value={s.alerts.phones}
+                onChange={(v) => setAl({ phones: v })}
+                placeholder="+1 555 010 2000"
+                details={`With the country code. Up to ${MAX_PHONES}, comma separated; empty = no messages`}
+              />
+              <Select
+                label="Send by"
+                value={s.alerts.phoneChannel}
+                onChange={(v) => setAl({ phoneChannel: v as PhoneChannel })}
+                options={[
+                  { value: "sms", label: "SMS" },
+                  { value: "whatsapp", label: "WhatsApp" },
+                  { value: "both", label: "SMS and WhatsApp" },
+                ]}
+              />
+            </s-grid>
+            <Checkbox label="Message me when items newly need ordering (each item once)" checked={s.alerts.phoneLowStock} onChange={(v) => setAl({ phoneLowStock: v })} />
+            <Checkbox label="Message me the weekly summary too" checked={s.alerts.phoneWeekly} onChange={(v) => setAl({ phoneWeekly: v })} />
+            <s-text color="subdued">
+              {data.messagesUsed} of {data.plan.messages} messages used this month. Each message to each number counts (&quot;SMS and WhatsApp&quot; uses
+              two). When they are used up, alerts still come by email.
+            </s-text>
+            {(() => {
+              const off = channelsOf(s.alerts.phoneChannel).filter((c) => !data.textLive[c]);
+              return off.length > 0 ? (
+                <s-banner tone="warning">{off.map((c) => (c === "sms" ? "SMS" : "WhatsApp")).join(" and ")} sending is not set up on this server yet, so messages are only logged.</s-banner>
+              ) : null;
+            })()}
+            <s-stack direction="inline" gap="small-200">
+              <Button onClick={() => action("test-message")} loading={busy === "test-message"} disabled={dirty || !s.alerts.phones}>
+                Send a test message
+              </Button>
+            </s-stack>
+            {data.messages.length > 0 && (
+              <div className={styles.tableWrap}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Sent</th>
+                      <th>Message</th>
+                      <th>To</th>
+                      <th>Result</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.messages.map((m, i) => (
+                      <tr key={i}>
+                        <td>{dateText(m.at)}</td>
+                        <td>
+                          <div className={`${styles.small} ${styles.muted}`}>{m.channel === "sms" ? "SMS" : "WhatsApp"}</div>
+                          {m.text}
+                        </td>
+                        <td>{m.to}</td>
+                        <td>
+                          <s-badge tone={m.status === "sent" ? "success" : m.status === "failed" ? "critical" : "neutral"}>{m.status}</s-badge>
+                          {m.error && <div className={`${styles.small} ${styles.muted}`}>{m.error}</div>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </s-stack>
+        )}
       </s-section>
 
       {googleEmail && (

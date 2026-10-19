@@ -1,4 +1,4 @@
-// Store settings: forecast defaults, which locations count, purchase order details and alerts.
+// Store settings: forecast defaults, which locations count, purchase order details and alerts (email, SMS, WhatsApp).
 // Shared by the server (validation, forecasts) and the browser (settings form). No server-only code here.
 
 export interface ForecastSettings {
@@ -29,7 +29,18 @@ export interface AlertSettings {
   hour: number; // local hour the emails go out
   lowStock: boolean; // daily email when items newly need ordering
   recipients: string; // comma separated; "" = the store email
+  // Text messages (Pro): numbers in international format, comma separated; "" = no messages
+  phones: string;
+  phoneChannel: PhoneChannel;
+  phoneLowStock: boolean; // a message when items newly need ordering (same moment as the low-stock email)
+  phoneWeekly: boolean; // a message with the weekly reorder summary
 }
+
+export type PhoneChannel = "sms" | "whatsapp" | "both";
+export const PHONE_CHANNELS: PhoneChannel[] = ["sms", "whatsapp", "both"];
+export const MAX_PHONES = 3;
+export type Channel = "sms" | "whatsapp";
+export const channelsOf = (c: PhoneChannel): Channel[] => (c === "both" ? ["sms", "whatsapp"] : [c]);
 
 export interface Settings {
   forecast: ForecastSettings;
@@ -60,7 +71,7 @@ export const DEFAULTS: Settings = {
     footer: "",
     updateCostOnReceive: false,
   },
-  alerts: { weekly: true, weeklyDay: 1, hour: 8, lowStock: true, recipients: "" },
+  alerts: { weekly: true, weeklyDay: 1, hour: 8, lowStock: true, recipients: "", phones: "", phoneChannel: "sms", phoneLowStock: true, phoneWeekly: false },
 };
 
 // Allowed ranges, also used by the form
@@ -89,6 +100,24 @@ export function parseEmails(s: string): { list: string[]; bad: string[] } {
     .map((x) => x.trim())
     .filter(Boolean);
   return { list: [...new Set(parts.filter(isEmail).map((x) => x.toLowerCase()))], bad: parts.filter((x) => !isEmail(x)) };
+}
+
+// "+1 (555) 010-2000, 0044 7700 900123" -> ["+15550102000", "+447700900123"]. Numbers must carry their
+// country code; invalid entries are returned in `bad`.
+export function parsePhones(s: string): { list: string[]; bad: string[] } {
+  const parts = String(s || "")
+    .split(/[,;\n]+/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  const list: string[] = [];
+  const bad: string[] = [];
+  for (const p of parts) {
+    const n = p.replace(/[\s\-.()]/g, "").replace(/^00/, "+");
+    if (/^\+[1-9]\d{7,14}$/.test(n)) {
+      if (!list.includes(n)) list.push(n);
+    } else bad.push(p);
+  }
+  return { list, bad };
 }
 
 type Obj = Record<string, unknown>;
@@ -157,6 +186,10 @@ export function cleanSettings(raw: unknown): Settings {
   if (!Number.isInteger(weeklyDay) || weeklyDay < 0 || weeklyDay > 6) problems.push("Choose a day for the weekly email.");
   const hour = Number(al.hour ?? DEFAULTS.alerts.hour);
   if (!Number.isInteger(hour) || hour < 0 || hour > 23) problems.push("Choose an hour for the emails.");
+  const phones = parsePhones(text(al.phones, 300));
+  if (phones.bad.length) problems.push(`Not a phone number with its country code (like +1 555 010 2000): ${phones.bad.slice(0, 3).join(", ")}.`);
+  if (phones.list.length > MAX_PHONES) problems.push(`Messages can go to at most ${MAX_PHONES} numbers.`);
+  const phoneChannel = PHONE_CHANNELS.includes(al.phoneChannel as PhoneChannel) ? (al.phoneChannel as PhoneChannel) : DEFAULTS.alerts.phoneChannel;
 
   if (problems.length) throw new SettingsError(problems);
   return {
@@ -177,6 +210,10 @@ export function cleanSettings(raw: unknown): Settings {
       hour,
       lowStock: bool(al.lowStock, DEFAULTS.alerts.lowStock),
       recipients: list.join(", "),
+      phones: phones.list.join(", "),
+      phoneChannel,
+      phoneLowStock: bool(al.phoneLowStock, DEFAULTS.alerts.phoneLowStock),
+      phoneWeekly: bool(al.phoneWeekly, DEFAULTS.alerts.phoneWeekly),
     },
   };
 }

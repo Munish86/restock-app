@@ -1,7 +1,25 @@
 # Reorder Desk (code name Restock): progress and handoff
 
-Read this first when starting a new session. Last updated: 2026-10-13 (renamed, plans trimmed, launch docs).
+Read this first when starting a new session. Last updated: 2026-10-19 (SMS + WhatsApp alerts for Pro).
 Owner's launch steps in order (Hinglish): `docs/LAUNCH.md`. Listing text + reviewer instructions: `docs/LISTING.md`.
+
+## 2026-10-19: SMS + WhatsApp alerts (Pro)
+
+- Owner asked for stock alerts on the phone (SMS + WhatsApp) as well as email, Pro only, with a monthly limit so Pro
+  stays profitable. Built: `app/.server/texts.ts` (Twilio REST, no SDK; `LogTexter` without keys), settings
+  `alerts.phones` (up to 3, +country code), `phoneChannel` sms|whatsapp|both, `phoneLowStock` (default on),
+  `phoneWeekly` (default off). Sent from `sendLowStock` / `sendWeekly` next to the email; the daily/weekly run now
+  also happens when only messages are on. "Send this week's email now" never texts.
+- Limit: `Plan.messages` (Free 0, Pro 100 per UTC month), each message to each number counts; `Shop.msgMonth` +
+  `msgCount`, taken with a conditional update before each send, given back when Twilio refuses or the channel is not
+  set up. Used up: logged as skipped, email still goes. SMS cut to one plain GSM segment (`smsText`, max 160).
+- WhatsApp needs an approved Utility template with {{1}} store, {{2}} what, {{3}} link (`TWILIO_WHATSAPP_TEMPLATE`).
+  No OTP check of numbers (would cost a message and a second, Authentication template); the merchant uses
+  "Send a test message". Cost guard is Twilio Geo permissions (LAUNCH.md 6b).
+- `MessageLog` (kept 180 days like EmailLog, deleted with the shop), migration `20261019000000_text_alerts`.
+  Privacy page names Twilio/Meta and the phone numbers. Not tried against real Twilio yet.
+- Verified: `npm test` 52 passed, `npm run test:browser` all passed (Free offer + Pro section, save, test message),
+  typecheck, lint, build clean. Pushed to `main` on 2026-10-19 (Railway redeploys and applies the migration).
 
 ## 2026-10-13: renamed to Reorder Desk, Free + Pro, launch docs
 

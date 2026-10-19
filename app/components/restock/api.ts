@@ -231,10 +231,13 @@ export interface SettingsData {
   shopName: string;
   currency: string;
   timezone: string;
-  plan: { key: string; name: string; locations: number | null };
+  plan: { key: string; name: string; locations: number | null; messages: number };
   locations: { id: string; name: string; isActive: boolean }[];
   emails: { kind: string; to: string; subject: string; status: string; error: string | null; at: string }[];
   emailLive: boolean;
+  messages: { kind: string; channel: string; to: string; text: string; status: string; error: string | null; at: string }[];
+  messagesUsed: number; // this month (UTC)
+  textLive: { sms: boolean; whatsapp: boolean }; // which channels really send on this server
 }
 
 export interface VariantHit {

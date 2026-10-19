@@ -185,7 +185,24 @@ await page.waitForTimeout(500);
 const locs = (await page.evaluate(() => window.__settings))?.locations;
 check("one-location plan keeps one location", JSON.stringify(locs) === JSON.stringify(["gid://shopify/Location/2"]), JSON.stringify(locs));
 check("google email shown", await page.getByText("restock@project.iam.gserviceaccount.com").isVisible());
+check("free plan: text alerts offered as Pro", await page.getByText("Get low-stock alerts on your phone by SMS or WhatsApp").isVisible());
 await shot("10-settings");
+
+// Pro: SMS / WhatsApp alerts
+await open("settings&plan=pro");
+await field("s-text-field", "Phone numbers").locator("input").fill("+1 555 010 2000");
+await field("s-select", "Send by").locator("select").selectOption("both");
+await page.locator('s-checkbox[label="Message me the weekly summary too"]').locator("input").check();
+await page.waitForTimeout(150);
+await page.locator("s-button", { hasText: /^Save$/ }).click();
+await page.waitForTimeout(500);
+const al = (await page.evaluate(() => window.__settings))?.alerts;
+check("phone settings saved", al?.phones === "+1 555 010 2000" && al?.phoneChannel === "both" && al?.phoneWeekly === true && al?.phoneLowStock === true, JSON.stringify(al));
+check("WhatsApp not set up warning", await page.getByText("WhatsApp sending is not set up on this server yet").isVisible());
+await button("Send a test message").click();
+await page.waitForTimeout(500);
+check("test message sent and logged", (await page.evaluate(() => window.__testMessage)) === true && (await page.getByText("1 of 100 messages used this month").isVisible()));
+await shot("11-settings-pro");
 
 check("no page errors", errors.length === 0, errors.slice(0, 5).join(" | "));
 await browser.close();

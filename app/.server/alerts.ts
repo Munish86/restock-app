@@ -1,5 +1,6 @@
-// The emails merchants get: the weekly "order these items" email, and a daily alert when items newly need
-// ordering. Each item is alerted once per low-stock episode; nothing is sent when there is nothing to do.
+// The alerts merchants get: the weekly "order these items" email, and a daily alert when items newly need
+// ordering, by email and (Pro) by SMS / WhatsApp. Each item is alerted once per low-stock episode; nothing is sent
+// when there is nothing to do.
 // No marketing, ever. Purchase orders to suppliers are sent from here too.
 import prisma from "../db.server";
 import { localClock, shortDay } from "../lib/dates";
@@ -11,6 +12,7 @@ import { markSentByEmail, poCsv, poDocument } from "./purchase-orders";
 import { money, poPdf } from "./pdf";
 import { absoluteSignedUrl } from "./signed";
 import { InputError } from "./suppliers";
+import { sendTexts, smsText, wantsTexts, type TextResult } from "./texts";
 
 const URGENCY: Record<string, number> = { out: 0, "order-now": 1, "order-soon": 2 };
 const MAX_ROWS = 25;
@@ -54,6 +56,31 @@ function itemsText(rows: PlanRow[], today: string) {
     .join("\n");
 }
 
+// "Oslo Mug x12, Tea Set x4 +3 more", as long as fits in `room` characters
+function shortList(rows: PlanRow[], room: number, plain: boolean) {
+  const parts = rows.map((r) => {
+    const n = plain ? smsText(name(r), 40) : name(r).slice(0, 60);
+    return `${n || "Item"} x${fmt(r.f.suggested)}`;
+  });
+  let out = "";
+  for (let i = 0; i < parts.length; i++) {
+    const rest = parts.length - i - 1;
+    const next = (out ? `${out}, ` : "") + parts[i];
+    const tail = rest ? ` +${rest} more` : "";
+    if (next.length + tail.length > room) return out ? `${out} +${parts.length - i} more` : `${parts.length} items`;
+    out = next;
+  }
+  return out;
+}
+
+const SMS_MAX = 160;
+const storeName = (s: { name: string }, shop: string) => smsText(s.name || shop.replace(".myshopify.com", ""), 30);
+
+const failedAll = (...results: ({ status: string } | null)[]) => {
+  const tried = results.filter(Boolean);
+  return tried.length > 0 && tried.every((r) => r!.status === "failed");
+};
+
 const footer = (shop: string, kind: "weekly" | "low-stock") => {
   const off = absoluteSignedUrl("alerts-off", shop, kind, 120 * 24 * 3600);
   return {
@@ -62,6 +89,7 @@ const footer = (shop: string, kind: "weekly" | "low-stock") => {
   };
 };
 
+// opts.force: the "Send this week's email now" button; sends the email only, even with nothing to order
 export async function sendWeekly(shop: string, opts: { force?: boolean } = {}) {
   const s = await prisma.shop.findUnique({ where: { shop } });
   if (!s) return { status: "skipped" as const, error: "Store not found." };
@@ -80,7 +108,8 @@ export async function sendWeekly(shop: string, opts: { force?: boolean } = {}) {
     sum.deadCount > 0
       ? `<p style="color:#555;margin-top:16px">${sum.deadCount} item${sum.deadCount === 1 ? " has" : "s have"} not sold in ${settings.forecast.deadStockDays} days${sum.deadValue ? `, with ${money(sum.deadValue, p.currency)} of stock` : ""}. See Dead stock in the app.</p>`
       : "";
-  const r = await sendEmail(shop, "weekly", {
+  const emailOn = opts.force || settings.alerts.weekly;
+  const r = !emailOn ? null : await sendEmail(shop, "weekly", {
     to: recipientsOf(s.email, settings.alerts.recipients),
     subject,
     html: layout({
@@ -92,12 +121,23 @@ export async function sendWeekly(shop: string, opts: { force?: boolean } = {}) {
     text: `${intro.replace(/<[^>]+>/g, "")}\n\n${itemsText(rows, p.today)}\n\nOpen the reorder list: ${adminAppUrl(shop)}\nTurn this email off: ${f.off}`,
     unsubscribeUrl: f.off,
   });
+  let t: TextResult | null = null;
+  if (!opts.force && rows.length && wantsTexts(settings.alerts, "weekly")) {
+    const link = adminAppUrl(shop);
+    const out = sum.counts.out ? ` (${sum.counts.out} out of stock)` : "";
+    const items = `${rows.length} item${rows.length === 1 ? "" : "s"}`;
+    t = await sendTexts(shop, "weekly", {
+      sms: `Reorder Desk: order ${items} this week at ${storeName(s, shop)}${out}. ${link}`,
+      what: `${items} to order this week${out}: ${shortList(rows, 300, false)}`,
+      link,
+    });
+  }
   // Everything listed counts as alerted, so tomorrow's low-stock alert does not repeat it
   const urgent = rows.filter((x) => x.f.status === "out" || x.f.status === "order-now").map((x) => x.id);
-  if (r.status !== "failed" && urgent.length) {
+  if (!failedAll(r, t) && urgent.length) {
     await prisma.variant.updateMany({ where: { shop, id: { in: urgent }, lowAlertAt: null }, data: { lowAlertAt: new Date() } });
   }
-  return r;
+  return r ?? t ?? { status: "skipped" as const, error: "Weekly alerts are off." };
 }
 
 export async function sendLowStock(shop: string) {
@@ -116,17 +156,27 @@ export async function sendLowStock(shop: string) {
   if (!fresh.length) return { status: "skipped" as const, error: "No new items need ordering." };
   const f = footer(shop, "low-stock");
   const intro = `${fresh.length} item${fresh.length === 1 ? "" : "s"} in ${esc(s.name || shop)} ${fresh.length === 1 ? "needs" : "need"} ordering now.`;
-  const r = await sendEmail(shop, "low-stock", {
+  const r = !settings.alerts.lowStock ? null : await sendEmail(shop, "low-stock", {
     to: recipientsOf(s.email, settings.alerts.recipients),
     subject: `Reorder Desk: ${fresh.length} item${fresh.length === 1 ? "" : "s"} to order now`,
     html: layout({ title: "Low stock", intro, body: itemsTable(fresh, p.today) + button(adminAppUrl(shop), "Open the reorder list"), footer: f.html }),
     text: `${intro}\n\n${itemsText(fresh, p.today)}\n\nOpen the reorder list: ${adminAppUrl(shop)}\nTurn these alerts off: ${f.off}`,
     unsubscribeUrl: f.off,
   });
-  if (r.status !== "failed") {
+  let t: TextResult | null = null;
+  if (wantsTexts(settings.alerts, "low-stock")) {
+    const link = adminAppUrl(shop);
+    const head = `Reorder Desk: ${fresh.length} item${fresh.length === 1 ? "" : "s"} to order now at ${storeName(s, shop)}: `;
+    t = await sendTexts(shop, "low-stock", {
+      sms: `${head}${shortList(fresh, SMS_MAX - head.length - link.length - 2, true)}. ${link}`,
+      what: `${fresh.length} item${fresh.length === 1 ? "" : "s"} ${fresh.length === 1 ? "needs" : "need"} ordering now: ${shortList(fresh, 300, false)}`,
+      link,
+    });
+  }
+  if (!failedAll(r, t)) {
     await prisma.variant.updateMany({ where: { shop, id: { in: fresh.map((x) => x.id) } }, data: { lowAlertAt: new Date() } });
   }
-  return r;
+  return r ?? t ?? { status: "skipped" as const, error: "Low-stock alerts are off." };
 }
 
 // Sends a purchase order to its supplier with the PDF and CSV attached, then marks it as sent
@@ -197,6 +247,20 @@ export async function sendTestEmail(shop: string) {
   return { ...r, to };
 }
 
+export async function sendTestMessage(shop: string) {
+  const s = await prisma.shop.findUnique({ where: { shop } });
+  if (!s) throw new InputError("Store not found.", 404);
+  const link = adminAppUrl(shop);
+  const r = await sendTexts(shop, "test", {
+    sms: `Reorder Desk: test message for ${storeName(s, shop)}. Stock alerts will arrive on this number. ${link}`,
+    what: "This is a test message. Stock alerts will arrive on this number",
+    link,
+  });
+  if (r.error === "SMS and WhatsApp alerts are part of the Pro plan.") throw new InputError(r.error, 402);
+  if (r.error === "Add a phone number first.") throw new InputError("Add a phone number and save first.");
+  return r;
+}
+
 // Called every minute by the worker: sends what is due in each store's own time zone.
 // Each send is claimed with a conditional update first, so two workers never send the same email.
 export async function runDueAlerts(now = new Date(), take = 50) {
@@ -213,7 +277,7 @@ export async function runDueAlerts(now = new Date(), take = 50) {
     const clock = localClock(now, s.timezone);
     if (clock.hour < a.hour) continue;
     const today = clock.day;
-    if (a.weekly && clock.weekday === a.weeklyDay && (!s.weeklySentAt || localClock(s.weeklySentAt, s.timezone).day !== today)) {
+    if ((a.weekly || wantsTexts(a, "weekly")) && clock.weekday === a.weeklyDay && (!s.weeklySentAt || localClock(s.weeklySentAt, s.timezone).day !== today)) {
       const claim = await prisma.shop.updateMany({
         where: { shop: s.shop, OR: [{ weeklySentAt: null }, { weeklySentAt: { lt: new Date(now.getTime() - 20 * 3600 * 1000) } }] },
         data: { weeklySentAt: now },
@@ -223,7 +287,7 @@ export async function runDueAlerts(now = new Date(), take = 50) {
         await sendWeekly(s.shop).catch((e) => console.error(`Weekly email failed for ${s.shop}:`, e));
       }
     }
-    if (a.lowStock && (!s.dailyCheckAt || localClock(s.dailyCheckAt, s.timezone).day !== today)) {
+    if ((a.lowStock || wantsTexts(a, "low-stock")) && (!s.dailyCheckAt || localClock(s.dailyCheckAt, s.timezone).day !== today)) {
       const claim = await prisma.shop.updateMany({
         where: { shop: s.shop, OR: [{ dailyCheckAt: null }, { dailyCheckAt: { lt: new Date(now.getTime() - 20 * 3600 * 1000) } }] },
         data: { dailyCheckAt: now },

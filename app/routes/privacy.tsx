@@ -40,6 +40,10 @@ export default function Privacy() {
         <li>Suppliers, purchase orders, receipts and the settings you enter.</li>
         <li>Supplier sheets you upload, deleted automatically after {fileDays} days.</li>
         <li>A log of emails the app sent for you (recipient, subject, result; not the content), kept for 6 months.</li>
+        <li>
+          On the Pro plan, if you add them: up to 3 phone numbers for stock alerts, and a log of the messages sent to them (number, the short
+          alert text, result), kept for 6 months.
+        </li>
       </ul>
       <h2>Changes the app makes in Shopify</h2>
       <p>
@@ -50,6 +54,12 @@ export default function Privacy() {
       <p>
         The app sends purchase orders to the supplier addresses you enter, and reorder emails and low-stock alerts to the addresses in your
         settings. It sends no marketing. Emails are delivered through Resend, used only for sending them.
+      </p>
+      <h2>SMS and WhatsApp</h2>
+      <p>
+        On the Pro plan, the app can send short stock alerts (item names, quantities and a link to the app) to the phone numbers you enter in
+        its settings, and to no one else. Messages are delivered through Twilio (and, for WhatsApp, Meta&apos;s WhatsApp Business Platform),
+        used only for sending them. Remove the numbers in Settings to stop the messages.
       </p>
       <h2>Where the data is kept</h2>
       <p>

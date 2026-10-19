@@ -453,6 +453,88 @@ describe("alerts", () => {
     expect(await alerts.runDueAlerts(monday9)).toBe(2); // weekly + daily
     expect(await alerts.runDueAlerts(new Date("2026-10-12T10:00:00Z"))).toBe(0);
   });
+
+  it("texts low stock by SMS and WhatsApp on Pro only, within the monthly allowance", async () => {
+    const texts = await import("../app/.server/texts");
+    class FakeTexter {
+      channels = { sms: true, whatsapp: true };
+      sent: import("../app/.server/texts").TextMessage[] = [];
+      fail = false;
+      async send(m: import("../app/.server/texts").TextMessage) {
+        if (this.fail) throw new Error("The message service refused the message (400): Invalid 'To' number");
+        this.sent.push(m);
+      }
+    }
+    const t = new FakeTexter();
+    texts.setTexter(t);
+    const lowAgain = async () => {
+      await prisma.inventoryLevel.updateMany({ where: { shop: SHOP, inventoryItemId: "gid://shopify/InventoryItem/1" }, data: { available: 3 } });
+      await prisma.variant.updateMany({ where: { shop: SHOP }, data: { lowAlertAt: null } });
+    };
+    const alertsOn = { lowStock: true, phones: "+1 (555) 010-2000, 0044 7700 900123", phoneChannel: "both", phoneLowStock: true };
+    await prisma.shop.update({ where: { shop: SHOP }, data: { plan: "free", msgMonth: "", msgCount: 0, settings: { alerts: alertsOn } } });
+
+    // Free: email only
+    await lowAgain();
+    let n = mailer.sent.length;
+    await alerts.sendLowStock(SHOP);
+    expect(mailer.sent.length).toBe(n + 1);
+    expect(t.sent.length).toBe(0);
+    await expect(alerts.sendTestMessage(SHOP)).rejects.toThrow(/Pro plan/);
+
+    // Pro: two numbers x SMS + WhatsApp = 4 messages, counted
+    await prisma.shop.update({ where: { shop: SHOP }, data: { plan: "pro" } });
+    await lowAgain();
+    await alerts.sendLowStock(SHOP);
+    expect(t.sent.map((m) => `${m.channel} ${m.to}`).sort()).toEqual(["sms +15550102000", "sms +447700900123", "whatsapp +15550102000", "whatsapp +447700900123"]);
+    const sms = t.sent.find((m) => m.channel === "sms")!;
+    expect(sms.body.length).toBeLessThanOrEqual(160);
+    expect(sms.body).toMatch(/^Reorder Desk: \d+ items? to order now at Test Store: .*Oslo Mug x\d+/);
+    expect(sms.body).toMatch(/https:\/\/admin\.shopify\.com\/store\/test-store\/apps\/\S+$/);
+    const wa = t.sent.find((m) => m.channel === "whatsapp")!;
+    expect(wa.vars[0]).toBe("Test Store");
+    expect(wa.vars[1]).toMatch(/need(s)? ordering now: .*Oslo Mug/);
+    expect(await texts.messagesUsed(SHOP)).toBe(4);
+    expect(await prisma.messageLog.count({ where: { shop: SHOP, status: "sent" } })).toBe(4);
+
+    // Only one message left this month: one goes, the rest are skipped and the email still goes
+    await prisma.shop.update({ where: { shop: SHOP }, data: { msgCount: 99 } });
+    await lowAgain();
+    t.sent = [];
+    n = mailer.sent.length;
+    await alerts.sendLowStock(SHOP);
+    expect(t.sent.length).toBe(1);
+    expect(mailer.sent.length).toBe(n + 1);
+    expect(await texts.messagesUsed(SHOP)).toBe(100);
+    expect(await prisma.messageLog.count({ where: { shop: SHOP, status: "skipped", error: { contains: "used up" } } })).toBe(3);
+
+    // A refused message is not counted
+    await prisma.shop.update({ where: { shop: SHOP }, data: { msgCount: 0 } });
+    t.fail = true;
+    const r = await alerts.sendTestMessage(SHOP);
+    expect(r.status).toBe("failed");
+    expect(r.error).toMatch(/Invalid 'To' number/);
+    expect(await texts.messagesUsed(SHOP)).toBe(0);
+    t.fail = false;
+
+    // Email alerts off, messages on: the daily check still runs and only texts
+    await prisma.shop.update({ where: { shop: SHOP }, data: { dailyCheckAt: null, weeklySentAt: new Date(), settings: { alerts: { ...alertsOn, lowStock: false, weekly: false, phoneChannel: "sms" } } } });
+    await lowAgain();
+    t.sent = [];
+    n = mailer.sent.length;
+    expect(await alerts.runDueAlerts(new Date(Date.now() + 3600_000))).toBe(1);
+    expect(mailer.sent.length).toBe(n);
+    expect(t.sent.length).toBe(2);
+    texts.setTexter(null);
+  });
+
+  it("keeps SMS to one plain segment", async () => {
+    const { smsText } = await import("../app/.server/texts");
+    expect(smsText("Café “Déco” – Lamp ☕ [blue] x2")).toBe('Cafe "Deco" - Lamp blue x2');
+    const long = smsText("a".repeat(300));
+    expect(long.length).toBe(160);
+    expect(long.endsWith("...")).toBe(true);
+  });
 });
 
 describe("job queue", () => {

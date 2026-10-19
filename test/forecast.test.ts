@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { forecast, fmt, roundOrder, salesRate, seasonalFactor, type ForecastInput } from "../app/lib/forecast";
 import { addDays, daysBetween, localClock, localDay, shortDay } from "../app/lib/dates";
 import { autoMapColumns } from "../app/lib/import-columns";
-import { cleanSettings, DEFAULTS, parseEmails, SettingsError, withDefaults } from "../app/lib/settings";
+import { cleanSettings, DEFAULTS, parseEmails, parsePhones, SettingsError, withDefaults } from "../app/lib/settings";
 import { planKeyFromName } from "../app/lib/plans";
 
 const weeks = (n: number, perWeek: number) => Array(n).fill(perWeek);
@@ -196,6 +196,18 @@ describe("helpers", () => {
     }
     expect(cleanSettings({ __proto__: { polluted: true } } as unknown)).not.toHaveProperty("polluted");
     expect(parseEmails("a@b.co; bad, c@d.io")).toEqual({ list: ["a@b.co", "c@d.io"], bad: ["bad"] });
+  });
+
+  it("checks phone numbers for text alerts", () => {
+    expect(parsePhones("+1 (555) 010-2000, 0044 7700 900123; 98765 43210, +15550102000")).toEqual({
+      list: ["+15550102000", "+447700900123"],
+      bad: ["98765 43210"], // no country code
+    });
+    const ok = cleanSettings({ alerts: { phones: "+91 98765 43210", phoneChannel: "whatsapp", phoneWeekly: true } });
+    expect(ok.alerts).toMatchObject({ phones: "+919876543210", phoneChannel: "whatsapp", phoneLowStock: true, phoneWeekly: true });
+    expect(cleanSettings({ alerts: { phoneChannel: "pigeon" } }).alerts.phoneChannel).toBe("sms");
+    expect(() => cleanSettings({ alerts: { phones: "+15550100001, +15550100002, +15550100003, +15550100004" } })).toThrow(/at most 3 numbers/);
+    expect(() => cleanSettings({ alerts: { phones: "call me" } })).toThrow(/country code/);
   });
 
   it("reads plan names", () => {

@@ -48,6 +48,7 @@ app/
     imports.ts        supplier sheet import (preview + apply) as a job
     alerts.ts         weekly email, low-stock alert, emailing a purchase order, due-time scheduling
     email.ts pdf.ts   Resend mailer, a small PDF writer for purchase orders
+    texts.ts          SMS / WhatsApp alerts through Twilio (Pro, monthly allowance per store)
     scheduler.ts      every minute: due syncs and alert emails
     jobs/             queue (BullMQ or in-process), processJob, job service and housekeeping
   routes/             pages (app.*), JSON endpoints (app.api.*), webhooks, signed downloads (dl.*)
@@ -94,7 +95,7 @@ On development stores test orders count as sales (they are the only orders there
 ## Tests
 
 ```
-npm test               # 49 tests: forecast maths, settings, and the full flow on a real Postgres (PGlite)
+npm test               # 52 tests: forecast maths, settings, and the full flow on a real Postgres (PGlite)
 npm run test:browser   # every page in Chrome with a fake API (needs Chrome/Edge and internet for Polaris)
 npm run typecheck && npm run lint && npm run build
 ```
@@ -104,7 +105,7 @@ npm run typecheck && npm run lint && npm run build
 Same as the uploader: one Docker image, two services (web: default start command; worker: `npm run worker`),
 PostgreSQL and Redis plugins, and these variables on both: `DATABASE_URL`, `REDIS_URL`, `SHOPIFY_API_KEY`,
 `SHOPIFY_API_SECRET`, `SHOPIFY_APP_URL`, `SCOPES`, `R2_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `SUPPORT_EMAIL`, `APP_HANDLE`,
-optionally `GOOGLE_SERVICE_ACCOUNT_JSON`. The worker runs jobs, the 6-hourly sync, the alert emails and the cleanup.
+optionally `GOOGLE_SERVICE_ACCOUNT_JSON` and `TWILIO_*` (SMS / WhatsApp alerts, see `.env.example`). The worker runs jobs, the 6-hourly sync, the alert emails and the cleanup.
 
 ## Plans and billing
 

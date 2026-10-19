@@ -63,6 +63,24 @@ Partner Dashboard > Reorder Desk > **API access** > **Protected customer data ac
    `SUPPORT_EMAIL=aapka-support@email` (privacy/support page pe dikhta hai).
 4. App > Settings > "Send a test email": inbox mein aana chahiye.
 
+## 6b. SMS + WhatsApp alerts: Twilio (Pro feature, 30 min + WhatsApp approval mein kuch din)
+
+Pro store ko har mahine 100 messages milte hain (har number pe har message 1 ginta hai; "SMS and WhatsApp" = 2).
+Limit `app/lib/plans.ts` mein `messages: 100` hai. Limit khatam = sirf email jaata hai. Kharcha aapka hai, isliye:
+
+1. twilio.com account > billing mein paise daalo, **auto-recharge band** rakho (galti se bada bill na aaye).
+2. **Messaging > Settings > Geo permissions**: sirf woh desh on karo jahan aapke merchants hain (US, CA, UK, AU...).
+   Mehenge desh band = koi bhi number wahan SMS nahi bhej payega. Yahi sabse bada bachav hai.
+3. **SMS**: ek number kharido (US ke liye toll-free number lo aur "Toll-free verification" bharo; 10DLC se aasaan).
+   Railway dono services: `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_SMS_FROM=+1...`.
+4. **WhatsApp**: Messaging > Senders > WhatsApp senders > apna Meta Business account jodo (business verification
+   lagta hai), ek number register karo. Phir Content Template Builder > naya template, category **Utility**, text:
+   `Reorder Desk alert for {{1}}: {{2}}. Open the reorder list: {{3}}` > WhatsApp approval ke liye bhejo.
+   Approve hone ke baad Railway pe: `TWILIO_WHATSAPP_FROM=+1...`, `TWILIO_WHATSAPP_TEMPLATE=HX...`.
+5. App > Settings > "SMS and WhatsApp alerts" (Pro plan pe dikhta hai) > apna number > Save > "Send a test message".
+6. Har mahine Twilio ka bill dekho. Approx rate (Oct 2026): SMS US ~$0.01, UK/AU ~$0.05; WhatsApp utility US
+   ~$0.008. Ek Pro store ka max kharcha ~100 x $0.05 = $5, Pro $29 hai. Rate badle to `messages` kam karo.
+
 ## 7. Dev store pe pura test (30 min)
 
 1. 2-3 products: SKU, cost per item, alag-alag stock.
