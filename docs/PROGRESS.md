@@ -1,7 +1,8 @@
 # Reorder Desk (code name Restock): progress and handoff
 
 Read this first when starting a new session. Last updated: 2026-10-19 (SMS + WhatsApp alerts for Pro).
-Owner's launch steps in order (Hinglish): `docs/LAUNCH.md`. Listing text + reviewer instructions: `docs/LISTING.md`.
+Quick handoff for a new session: `docs/CONTINUE.md`. Owner's launch steps in order (Hinglish): `docs/LAUNCH.md`.
+Listing text + reviewer instructions: `docs/LISTING.md`.
 
 ## 2026-10-19: SMS + WhatsApp alerts (Pro)
 
